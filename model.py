@@ -1,23 +1,27 @@
-from flax import nnx
-import jax.numpy as jnp
+import flax.linen as nn
 
-class CNN(nnx.Module):
-    def __init__(self, num_classes=10, rngs=None):
-        super().__init__()
-        if rngs is None:
-            rngs = nnx.Rngs(0)
-        
-        self.conv1 = nnx.Conv(3, 32, kernel_size=(3, 3), padding="same", rngs=rngs)
-        self.conv2 = nnx.Conv(32, 64, kernel_size=(3, 3), padding="same", rngs=rngs)
-        self.fc1 = nnx.Linear(64 * 8 * 8, 128, rngs=rngs)
-        self.fc2 = nnx.Linear(128, num_classes, rngs=rngs)
+class ImprovedCNN(nn.Module):
+    num_classes: int
 
+    @nn.compact
     def __call__(self, x):
-        x = nnx.relu(self.conv1(x))
-        x = nnx.max_pool(x, (2, 2))
-        x = nnx.relu(self.conv2(x))
-        x = nnx.max_pool(x, (2, 2))
-        x = x.reshape(x.shape[0], -1)
-        x = nnx.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = nn.Conv(features=32, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=32, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = nn.Dropout(rate=0.25)(x, deterministic=False)
+        
+        x = nn.Conv(features=64, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=64, kernel_size=(3, 3), padding="SAME")(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = nn.Dropout(rate=0.25)(x, deterministic=False)
+        
+        x = x.reshape((x.shape[0], -1))
+        x = nn.Dense(features=512)(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=0.5)(x, deterministic=False)
+        x = nn.Dense(features=self.num_classes)(x)
         return x
